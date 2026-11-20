@@ -2,14 +2,13 @@
 # Description
 English Word Chain minigame plugin for Minecraft Java Server. Take turns typing English words in chat, each word must start with the last letter of the previous word. Run out of time too many times and you are out! If you have a question, please make an [issue](https://github.com/Kylan1940/WordChain/issues/new)
 
-# Changelogs [1.0.0]
->- First release
-
 # Features
 >- Simple
 >- Configuration (settings and all messages)
 >- English word chain with ~370,000 words dictionary
 >- Lives (game health) for the whole game, plus turn health (tries) that resets every turn
+>- Third person view: a camera glides to the player whose turn it is
+>- The required letter and every typed word (white, wrong or right) float above the player
 >- Turn timer that gets shorter every round
 >- Timer shown on the action bar
 >- Winner reward commands
@@ -26,7 +25,9 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 7. Every turn you have a few **tries** (turn health). A wrong word costs 1 try, and you can try again until the tries or the time run out.
 8. If you use all your tries, or the time runs out, you lose 1 **life** (game health) and the turn goes to the next player. At 0 lives you are eliminated.
 9. Leaving the room (or disconnecting) in the middle of a match eliminates you.
-10. The last player standing wins! The room is closed after the game.
+10. The last player standing wins! The camera shows the winner, then everyone gets their game mode and location back. The room is closed after the game.
+
+**Third person view:** when the game starts, every player is put in spectator mode and sits in a circle around the host (play on flat ground). The camera looks at the player whose turn it is. Above them you see the required letter (gold) and every word they type (white). This can be turned off with `stage.enabled: false`.
 
 Many rooms can run at the same time. If the host leaves before the game starts, the next player becomes the host.
 
@@ -72,6 +73,20 @@ game:
   min-turn-time: 8             # ...but never below this
   min-word-length: 3
 ```
+
+# Stage (third person view)
+```yaml
+stage:
+  enabled: true
+  radius: 5.0            # circle of seats around the host
+  camera-distance: 3.5   # camera distance in front of the player
+  camera-height: 1.4
+  move-ticks: 25         # how long the camera glides to the next player
+  end-delay: 80          # winner stays in view (ticks)
+  text-height: 1.9
+  text-scale: 1.5
+```
+Letter, word and name colors are in `stage` too (`letter-format`, `attempt-format`, ...).
 
 # Rewards
 Commands run by the console when someone wins. `%player%` is the winner name.

@@ -1,6 +1,7 @@
 package org.kylan1940.wordchain.game;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -62,6 +63,9 @@ public class WordChainGame {
     private int turnTries = 0;          // wrong words left in the current turn (resets every turn)
     private int timeLeft = 0;           // seconds left for the current turn
     private int countdown = 0;          // seconds left before the game starts
+
+    // Third person view (camera, seats, floating words). null if stage.enabled is false.
+    private GameStage stage;
 
     private BukkitTask countdownTask;
     private BukkitTask turnTask;
@@ -135,6 +139,9 @@ public class WordChainGame {
 
         if (state == State.RUNNING) {
             // Leaving in the middle of a match = eliminated
+            if (stage != null) {
+                stage.restore(player); // give them their game mode and location back
+            }
             eliminate(player.getUniqueId(), "messages.eliminated-left");
             return;
         }
@@ -210,6 +217,24 @@ public class WordChainGame {
         requiredLetter = 0;
 
         broadcast("messages.game-started");
+
+        // Third person view: seats in a circle around the host + a camera
+        if (plugin.getConfig().getBoolean("stage.enabled", true)) {
+            List<Player> online = new ArrayList<>();
+            for (UUID uuid : players) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null) {
+                    online.add(player);
+                }
+            }
+            if (!online.isEmpty()) {
+                Player host = Bukkit.getPlayer(owner);
+                Location center = (host != null ? host : online.get(0)).getLocation();
+                stage = new GameStage(plugin, online, center);
+                stage.start();
+            }
+        }
+
         beginTurn();
     }
 
@@ -230,6 +255,10 @@ public class WordChainGame {
     private void reset() {
         cancelCountdown();
         cancelTurnTask();
+        if (stage != null) {
+            stage.stop();
+            stage = null;
+        }
         players.clear();
         participants.clear();
         lives.clear();
@@ -250,6 +279,10 @@ public class WordChainGame {
     private void beginTurn() {
         Player current = Bukkit.getPlayer(players.get(currentIndex));
         String name = getName(players.get(currentIndex));
+
+        if (stage != null) {
+            stage.showTurn(players.get(currentIndex), getLetterText());
+        }
 
         timeLeft = getTurnTime();
         turnTries = Math.max(1, plugin.getConfig().getInt("game.turn-health", 3));
@@ -347,6 +380,11 @@ public class WordChainGame {
         FileConfiguration config = plugin.getConfig();
         String word = input.trim().toLowerCase();
 
+        // Every word that is typed shows up above the player (wrong or right)
+        if (stage != null) {
+            stage.addAttempt(player.getUniqueId(), input.trim());
+        }
+
         // 1. Only letters a-z
         if (!word.matches("[a-z]+")) {
             wrongAnswer(player, "messages.invalid-characters");
@@ -413,6 +451,9 @@ public class WordChainGame {
 
         // Tell everyone BEFORE removing so the eliminated player also sees it
         broadcast(messageKey, "%player%", getName(uuid));
+        if (stage != null) {
+            stage.markEliminated(uuid);
+        }
         players.remove(index);
         manager.unmap(uuid); // the eliminated player is free to join another room
 
@@ -441,6 +482,10 @@ public class WordChainGame {
     private void endGame() {
         cancelTurnTask();
 
+        // The stage closes by itself: the winner stays in view for a moment first
+        GameStage endingStage = stage;
+        stage = null;
+
         if (players.size() == 1) {
             UUID winnerId = players.get(0);
             String winner = getName(winnerId);
@@ -450,12 +495,19 @@ public class WordChainGame {
                     "%words%", String.valueOf(usedWords.size()),
                     "%rounds%", String.valueOf(round));
 
+            if (endingStage != null) {
+                endingStage.finish(winnerId, plugin.getConfig().getInt("stage.end-delay", 80));
+            }
+
             // Run the reward commands from config.yml as console
             for (String command : plugin.getConfig().getStringList("rewards.winner-commands")) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", winner));
             }
         } else {
             broadcastToParticipantsAndPlayers("messages.no-winner");
+            if (endingStage != null) {
+                endingStage.stop();
+            }
         }
 
         reset();

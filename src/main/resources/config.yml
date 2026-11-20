@@ -60,6 +60,36 @@ game:
   min-word-length: 3
 
 # ===========================================================================
+# STAGE (third person view)
+# While a game is running every player is put in spectator mode and watches
+# through a camera. The camera glides to the player whose turn it is.
+# Above that player: the required letter and every word they type (white).
+# Play on flat ground, the seats are placed in a circle around the host.
+# Players get their old game mode and location back when the game ends.
+# ===========================================================================
+stage:
+  # false = old first person mode (no camera, words only in chat)
+  enabled: true
+  # Radius of the circle of seats (blocks)
+  radius: 5.0
+  # How far in front of the player the camera stands, and how high
+  camera-distance: 3.5
+  camera-height: 1.4
+  # Height the camera looks at (above the floor)
+  look-height: 1.3
+  # Ticks the camera needs to glide to the next player (20 ticks = 1 second)
+  move-ticks: 25
+  # Ticks the winner stays in view before everyone goes back (20 ticks = 1 second)
+  end-delay: 80
+  # Floating text above the player
+  text-height: 1.9
+  text-scale: 1.5
+  letter-format: "&6&l%letter%"
+  attempt-format: "&f%word%"
+  name-format: "&7%player%"
+  eliminated-format: "&c&m%player%"
+
+# ===========================================================================
 # REWARDS
 # ===========================================================================
 rewards:

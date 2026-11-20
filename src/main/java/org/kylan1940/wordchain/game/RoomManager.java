@@ -309,6 +309,9 @@ public class RoomManager {
         rooms.clear();
         playerRoom.clear();
         invites.clear();
+
+        // Also closes stages that are waiting to finish (winner view)
+        GameStage.stopAll();
     }
 
     // Removes expired invites and returns the ones that are still valid
