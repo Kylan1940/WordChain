@@ -33,6 +33,9 @@ prefix: "&7[&bWordChain&7] "
 game:
   # Minimum players needed. The countdown starts automatically when reached.
   min-players: 2
+  # Lives (health) each player has for the whole game. Running out of time costs 1 life.
+  # At 0 lives the player is eliminated. Set to 1 for instant elimination.
+  lives: 3
   # Maximum players in one game.
   max-players: 10
   # Seconds before the game starts once min-players is reached.
@@ -57,7 +60,7 @@ rewards:
 
 # ===========================================================================
 # MESSAGES
-# Placeholders: %player% %word% %letter% %time% %seconds% %players% %max% %min%
+# Placeholders: %player% %word% %letter% %time% %seconds% %players% %max% %min% %lives%
 # ===========================================================================
 messages:
   # Shown instead of a letter on the first word of a game.
@@ -96,9 +99,9 @@ messages:
   game-started:
     - "%prefix%&aThe game has started!"
     - "%prefix%&7Type a word that starts with the last letter of the previous word. Don't run out of time!"
-  your-turn-broadcast: "%prefix%&e%player%&7's turn! Letter: &b%letter% &7(&c%time%s&7)"
+  your-turn-broadcast: "%prefix%&e%player%&7's turn! Letter: &b%letter% &7(&c%time%s&7) &8| &c%lives%❤"
   your-turn: "%prefix%&aIt's your turn! Type a word starting with &b%letter% &ain chat."
-  actionbar: "&e%player% &8| &7Letter: &b%letter% &8| &c%time%s"
+  actionbar: "&e%player% &8| &7Letter: &b%letter% &8| &c%time%s &8| &c%lives%❤"
   word-accepted: "%prefix%&b%player% &8» &f%word% &7- next letter: &b%letter%"
 
   # Wrong word messages (the player can try again until time runs out)
@@ -109,7 +112,8 @@ messages:
   not-a-word: "%prefix%&c\"%word%\" is not an English word."
 
   # End messages
-  eliminated-timeout: "%prefix%&c%player% &7ran out of time and is eliminated!"
+  life-lost: "%prefix%&c%player% &7ran out of time and lost a life! &8(&c%lives%❤ &8left)"
+  eliminated-timeout: "%prefix%&c%player% &7ran out of time with no lives left and is eliminated!"
   eliminated-left: "%prefix%&c%player% &7left and is eliminated!"
   game-stopped: "%prefix%&cThe game was stopped."
   no-winner: "%prefix%&7The game ended with no winner."

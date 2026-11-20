@@ -9,8 +9,10 @@ import org.kylan1940.wordchain.message.MessageUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -23,8 +25,10 @@ import java.util.UUID;
  *  - Players take turns typing an English word in chat.
  *  - The word must start with the last letter of the previous word.
  *  - A word can only be used once per game.
- *  - A wrong word just gives a warning (try again), but when the timer
- *    runs out the player is eliminated. Last player standing wins.
+ *  - A wrong word just gives a warning (try again).
+ *  - Every player has lives (health) for the WHOLE game, not per turn.
+ *    When the timer runs out the player loses 1 life. At 0 lives the player
+ *    is eliminated. Last player standing wins.
  */
 public class WordChainGame {
 
@@ -41,6 +45,8 @@ public class WordChainGame {
     private final List<UUID> players = new ArrayList<>();
     // Everyone who started the match (used to send the final messages)
     private final Set<UUID> participants = new HashSet<>();
+    // Lives left per player (global for the whole match)
+    private final Map<UUID, Integer> lives = new HashMap<>();
     // Words already used in this match
     private final Set<String> usedWords = new HashSet<>();
 
@@ -176,6 +182,13 @@ public class WordChainGame {
         participants.clear();
         participants.addAll(players);
 
+        // Everyone starts with the same amount of lives
+        lives.clear();
+        int startLives = Math.max(1, plugin.getConfig().getInt("game.lives", 3));
+        for (UUID uuid : players) {
+            lives.put(uuid, startLives);
+        }
+
         Collections.shuffle(players); // random turn order
         currentIndex = 0;
         round = 1;
@@ -204,6 +217,7 @@ public class WordChainGame {
         cancelTurnTask();
         players.clear();
         participants.clear();
+        lives.clear();
         usedWords.clear();
         currentIndex = 0;
         round = 1;
@@ -224,11 +238,13 @@ public class WordChainGame {
         broadcast("messages.your-turn-broadcast",
                 "%player%", name,
                 "%letter%", getLetterText(),
-                "%time%", String.valueOf(timeLeft));
+                "%time%", String.valueOf(timeLeft),
+                "%lives%", String.valueOf(getLives(players.get(currentIndex))));
         if (current != null) {
             MessageUtil.send(current, "messages.your-turn",
                     "%letter%", getLetterText(),
-                    "%time%", String.valueOf(timeLeft));
+                    "%time%", String.valueOf(timeLeft),
+                    "%lives%", String.valueOf(getLives(players.get(currentIndex))));
         }
         updateActionBar();
 
@@ -236,7 +252,7 @@ public class WordChainGame {
         turnTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             timeLeft--;
             if (timeLeft <= 0) {
-                eliminate(players.get(currentIndex), "messages.eliminated-timeout");
+                loseLife(players.get(currentIndex));
                 return;
             }
             updateActionBar();
@@ -269,9 +285,30 @@ public class WordChainGame {
                 MessageUtil.actionBar(player, "messages.actionbar",
                         "%player%", name,
                         "%letter%", getLetterText(),
-                        "%time%", String.valueOf(timeLeft));
+                        "%time%", String.valueOf(timeLeft),
+                        "%lives%", String.valueOf(getLives(players.get(currentIndex))));
             }
         }
+    }
+
+    // Time ran out: -1 life. At 0 lives the player is eliminated, otherwise the next player goes.
+    private void loseLife(UUID uuid) {
+        int left = getLives(uuid) - 1;
+        lives.put(uuid, left);
+
+        if (left <= 0) {
+            eliminate(uuid, "messages.eliminated-timeout");
+            return;
+        }
+
+        broadcast("messages.life-lost",
+                "%player%", getName(uuid),
+                "%lives%", String.valueOf(left));
+        nextTurn();
+    }
+
+    private int getLives(UUID uuid) {
+        return lives.getOrDefault(uuid, 0);
     }
 
     // ------------------------------------------------------------------
