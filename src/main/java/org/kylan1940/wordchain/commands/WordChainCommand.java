@@ -1,11 +1,13 @@
 package org.kylan1940.wordchain.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.kylan1940.wordchain.WordChain;
+import org.kylan1940.wordchain.game.RoomManager;
 import org.kylan1940.wordchain.game.WordChainGame;
 import org.kylan1940.wordchain.message.MessageUtil;
 
@@ -15,11 +17,11 @@ import java.util.List;
 public class WordChainCommand implements CommandExecutor, TabCompleter {
 
     private final WordChain plugin;
-    private final WordChainGame game;
+    private final RoomManager manager;
 
-    public WordChainCommand(WordChain plugin, WordChainGame game) {
+    public WordChainCommand(WordChain plugin, RoomManager manager) {
         this.plugin = plugin;
-        this.game = game;
+        this.manager = manager;
     }
 
     @Override
@@ -30,64 +32,36 @@ public class WordChainCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        switch (args[0].toLowerCase()) {
+        String sub = args[0].toLowerCase();
 
+        switch (sub) {
+
+            // ---- Commands for players (permission: wordchain-play.command) ----
             case "join":
-                if (!(sender instanceof Player)) {
-                    MessageUtil.send(sender, "messages.only-player");
-                    return true;
-                }
-                if (!sender.hasPermission("wordchain-play.command")) {
-                    MessageUtil.send(sender, "messages.no-permission");
-                    return true;
-                }
-                game.join((Player) sender);
-                return true;
-
             case "leave":
-                if (!(sender instanceof Player)) {
-                    MessageUtil.send(sender, "messages.only-player");
-                    return true;
-                }
-                if (!sender.hasPermission("wordchain-play.command")) {
-                    MessageUtil.send(sender, "messages.no-permission");
-                    return true;
-                }
-                if (!game.isInGame((Player) sender)) {
-                    MessageUtil.send(sender, "messages.not-in-game");
-                    return true;
-                }
-                game.leave((Player) sender);
-                return true;
-
+            case "invite":
+            case "accept":
+            case "deny":
+            case "start":
             case "status":
                 if (!sender.hasPermission("wordchain-play.command")) {
                     MessageUtil.send(sender, "messages.no-permission");
                     return true;
                 }
-                MessageUtil.send(sender, "messages.status",
-                        "%state%", game.getState().name(),
-                        "%players%", String.valueOf(game.getPlayers().size()));
-                return true;
-
-            case "start":
-                if (!sender.hasPermission("wordchain-start.command")) {
-                    MessageUtil.send(sender, "messages.no-permission");
+                if (!(sender instanceof Player)) {
+                    MessageUtil.send(sender, "messages.only-player");
                     return true;
                 }
-                if (!game.forceStart()) {
-                    MessageUtil.send(sender, "messages.cannot-start",
-                            "%min%", String.valueOf(plugin.getConfig().getInt("game.min-players", 2)));
-                }
+                handlePlayerCommand((Player) sender, sub, args);
                 return true;
 
+            // ---- /wc stop (host) or /wc stop <host> (admin) ----
             case "stop":
-                if (!sender.hasPermission("wordchain-stop.command")) {
+                if (!sender.hasPermission("wordchain-play.command")) {
                     MessageUtil.send(sender, "messages.no-permission");
                     return true;
                 }
-                game.stop();
-                MessageUtil.send(sender, "messages.stopped");
+                manager.stop(sender, args.length >= 2 ? args[1] : null);
                 return true;
 
             case "reload":
@@ -105,6 +79,55 @@ public class WordChainCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void handlePlayerCommand(Player player, String sub, String[] args) {
+        switch (sub) {
+
+            case "join":
+                manager.createRoom(player);
+                break;
+
+            case "leave":
+                if (manager.getRoom(player) == null) {
+                    MessageUtil.send(player, "messages.not-in-room");
+                    return;
+                }
+                manager.leave(player);
+                break;
+
+            case "invite":
+                if (args.length < 2) {
+                    MessageUtil.send(player, "messages.usage-invite");
+                    return;
+                }
+                manager.invite(player, args[1]);
+                break;
+
+            case "accept":
+                manager.accept(player, args.length >= 2 ? args[1] : null);
+                break;
+
+            case "deny":
+                manager.deny(player);
+                break;
+
+            case "start":
+                manager.start(player);
+                break;
+
+            case "status":
+                WordChainGame room = manager.getRoom(player);
+                if (room == null) {
+                    MessageUtil.send(player, "messages.not-in-room");
+                    return;
+                }
+                MessageUtil.send(player, "messages.status",
+                        "%host%", room.getOwnerName(),
+                        "%state%", room.getState().name(),
+                        "%players%", String.valueOf(room.getPlayers().size()));
+                break;
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         MessageUtil.send(sender, "messages.help");
     }
@@ -114,12 +137,41 @@ public class WordChainCommand implements CommandExecutor, TabCompleter {
         List<String> result = new ArrayList<>();
 
         if (args.length == 1) {
-            addIfAllowed(result, sender, args[0], "join", "wordchain-play.command");
-            addIfAllowed(result, sender, args[0], "leave", "wordchain-play.command");
-            addIfAllowed(result, sender, args[0], "status", "wordchain-play.command");
-            addIfAllowed(result, sender, args[0], "start", "wordchain-start.command");
-            addIfAllowed(result, sender, args[0], "stop", "wordchain-stop.command");
+            for (String sub : new String[]{"join", "leave", "invite", "accept", "deny", "start", "stop", "status"}) {
+                addIfAllowed(result, sender, args[0], sub, "wordchain-play.command");
+            }
             addIfAllowed(result, sender, args[0], "reload", "wordchain-reload.command");
+            return result;
+        }
+
+        if (args.length == 2) {
+            String typed = args[1].toLowerCase();
+            String sub = args[0].toLowerCase();
+
+            // /wc invite <player>: online players who are not in a room
+            if (sub.equals("invite")) {
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (manager.getRoom(online) == null && online.getName().toLowerCase().startsWith(typed)) {
+                        result.add(online.getName());
+                    }
+                }
+            }
+            // /wc accept <host>: hosts who invited you
+            if (sub.equals("accept") && sender instanceof Player) {
+                for (String name : manager.getInviterNames((Player) sender)) {
+                    if (name.toLowerCase().startsWith(typed)) {
+                        result.add(name);
+                    }
+                }
+            }
+            // /wc stop <host>: admin only
+            if (sub.equals("stop") && sender.hasPermission("wordchain-stop.command")) {
+                for (WordChainGame room : manager.getRooms()) {
+                    if (room.getOwnerName().toLowerCase().startsWith(typed)) {
+                        result.add(room.getOwnerName());
+                    }
+                }
+            }
         }
         return result;
     }

@@ -3,7 +3,7 @@ package org.kylan1940.wordchain;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.kylan1940.wordchain.commands.WordChainCommand;
-import org.kylan1940.wordchain.game.WordChainGame;
+import org.kylan1940.wordchain.game.RoomManager;
 import org.kylan1940.wordchain.game.WordDictionary;
 import org.kylan1940.wordchain.listeners.ChatListener;
 import org.kylan1940.wordchain.listeners.QuitListener;
@@ -14,7 +14,7 @@ public final class WordChain extends JavaPlugin {
     private static WordChain instance;
 
     private WordDictionary dictionary;
-    private WordChainGame game;
+    private RoomManager manager;
 
     @Override
     public void onEnable() {
@@ -27,10 +27,10 @@ public final class WordChain extends JavaPlugin {
         dictionary = new WordDictionary();
         dictionary.load(this);
 
-        game = new WordChainGame(this, dictionary);
+        manager = new RoomManager(this, dictionary);
 
         // Command
-        WordChainCommand wordChainCommand = new WordChainCommand(this, game);
+        WordChainCommand wordChainCommand = new WordChainCommand(this, manager);
         PluginCommand command = getCommand("wordchain");
         if (command != null) {
             command.setExecutor(wordChainCommand);
@@ -38,16 +38,16 @@ public final class WordChain extends JavaPlugin {
         }
 
         // Listeners
-        getServer().getPluginManager().registerEvents(new ChatListener(this, game), this);
-        getServer().getPluginManager().registerEvents(new QuitListener(game), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(this, manager), this);
+        getServer().getPluginManager().registerEvents(new QuitListener(manager), this);
 
         getLogger().info("WordChain Enabled!");
     }
 
     @Override
     public void onDisable() {
-        if (game != null) {
-            game.shutdown();
+        if (manager != null) {
+            manager.shutdown();
         }
         getLogger().info("WordChain Disabled!");
     }

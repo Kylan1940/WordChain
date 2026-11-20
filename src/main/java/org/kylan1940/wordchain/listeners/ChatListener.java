@@ -7,16 +7,17 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.kylan1940.wordchain.WordChain;
+import org.kylan1940.wordchain.game.RoomManager;
 import org.kylan1940.wordchain.game.WordChainGame;
 
 public class ChatListener implements Listener {
 
     private final WordChain plugin;
-    private final WordChainGame game;
+    private final RoomManager manager;
 
-    public ChatListener(WordChain plugin, WordChainGame game) {
+    public ChatListener(WordChain plugin, RoomManager manager) {
         this.plugin = plugin;
-        this.game = game;
+        this.manager = manager;
     }
 
     // LOWEST so we get the message first, before other chat plugins
@@ -24,9 +25,10 @@ public class ChatListener implements Listener {
     public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
 
-        // Only the player whose turn it is gets their chat used as a word.
+        // Only the player whose turn it is (in their room) gets their chat used as a word.
         // Everybody else can still chat normally.
-        if (!game.isCurrentPlayer(player)) {
+        WordChainGame game = manager.getRoom(player);
+        if (game == null || !game.isCurrentPlayer(player)) {
             return;
         }
 

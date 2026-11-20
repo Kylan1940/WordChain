@@ -9,18 +9,15 @@ description: English Word Chain minigame for Minecraft servers
 commands:
   wordchain:
     description: Word Chain main command
-    usage: /wordchain <join|leave|status|start|stop|reload>
+    usage: /wordchain <join|invite|accept|deny|start|leave|stop|status|reload>
     aliases: [wc]
 
 permissions:
   wordchain-play.command:
-    description: Join, leave and check the Word Chain game
+    description: Create a room, invite, accept, start, leave and stop your own room
     default: true
-  wordchain-start.command:
-    description: Force start the Word Chain game
-    default: op
   wordchain-stop.command:
-    description: Stop the Word Chain game
+    description: Stop the room of any host (/wordchain stop <host>)
     default: op
   wordchain-reload.command:
     description: Reload the WordChain config

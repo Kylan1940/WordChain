@@ -28,17 +28,27 @@ config-version: 1
 prefix: "&7[&bWordChain&7] "
 
 # ===========================================================================
+# ROOM SETTINGS
+# ===========================================================================
+room:
+  # Seconds an invite (/wc invite) stays valid.
+  invite-timeout: 60
+
+# ===========================================================================
 # GAME SETTINGS
 # ===========================================================================
 game:
-  # Minimum players needed. The countdown starts automatically when reached.
+  # Minimum players needed before the host can use /wc start.
   min-players: 2
   # Lives (health) each player has for the whole game. Running out of time costs 1 life.
   # At 0 lives the player is eliminated. Set to 1 for instant elimination.
   lives: 3
+  # Turn health: how many wrong words a player can type in ONE turn (resets every turn).
+  # When they are all used, the player loses 1 life and the turn goes to the next player.
+  turn-health: 3
   # Maximum players in one game.
   max-players: 10
-  # Seconds before the game starts once min-players is reached.
+  # Seconds between /wc start and the real start of the game (0 = instant).
   start-countdown: 10
   # Seconds each player has for their turn in the first round.
   turn-time: 20
@@ -60,7 +70,7 @@ rewards:
 
 # ===========================================================================
 # MESSAGES
-# Placeholders: %player% %word% %letter% %time% %seconds% %players% %max% %min% %lives%
+# Placeholders: %player% %word% %letter% %time% %seconds% %players% %max% %min% %lives% %tries% %host%
 # ===========================================================================
 messages:
   # Shown instead of a letter on the first word of a game.
@@ -70,38 +80,61 @@ messages:
   no-permission: "%prefix%&cYou don't have permission to do that."
   only-player: "%prefix%&cOnly players can use this command."
   reloaded: "%prefix%&aConfig reloaded."
-  stopped: "%prefix%&aThe game has been stopped."
-  cannot-start: "%prefix%&cCannot start. The game is already running or there are fewer than %min% players."
-  status: "%prefix%&7State: &f%state% &7| Players: &f%players%"
+  stopped: "%prefix%&aThe room has been closed."
+  cannot-start: "%prefix%&cYou need at least %min% players to start."
+  status: "%prefix%&7Host: &f%host% &7| State: &f%state% &7| Players: &f%players%"
   help:
     - "&8&m                                        "
     - "&b&lWordChain &7- type words that start with the last letter of the previous word!"
-    - "&e/wordchain join &7- Join the game"
-    - "&e/wordchain leave &7- Leave the game"
-    - "&e/wordchain status &7- See the game status"
-    - "&e/wordchain start &7- Force start &8(admin)"
-    - "&e/wordchain stop &7- Stop the game &8(admin)"
+    - "&e/wordchain join &7- Create a room (you become the host)"
+    - "&e/wordchain invite <player> &7- Invite a player to your room &8(host)"
+    - "&e/wordchain accept [host] &7- Accept an invite"
+    - "&e/wordchain deny &7- Deny your invites"
+    - "&e/wordchain start &7- Start the game &8(host)"
+    - "&e/wordchain leave &7- Leave your room"
+    - "&e/wordchain stop &7- Close your room &8(host)"
+    - "&e/wordchain status &7- See your room status"
+    - "&e/wordchain stop <host> &7- Close a room &8(admin)"
     - "&e/wordchain reload &7- Reload config &8(admin)"
     - "&8&m                                        "
 
-  # Lobby messages
-  game-already-running: "%prefix%&cA game is already running. Wait for the next one!"
-  already-joined: "%prefix%&cYou already joined the game."
-  game-full: "%prefix%&cThe game is full."
-  not-in-game: "%prefix%&cYou are not in the game."
-  player-joined: "%prefix%&a%player% &7joined the game &8(%players%/%max%)"
-  player-left: "%prefix%&c%player% &7left the game."
-  you-left: "%prefix%&7You left the game."
-  countdown: "%prefix%&7Game starts in &e%seconds% &7second(s)..."
+  # Room messages
+  room-created:
+    - "%prefix%&aRoom created! You are the host."
+    - "%prefix%&7Use &e/wc invite <player> &7to invite players, then &e/wc start&7."
+  already-in-room: "%prefix%&cYou are already in a room. Use /wc leave first."
+  not-in-room: "%prefix%&cYou are not in a room. Use /wc join to create one."
+  not-host: "%prefix%&cOnly the host can do that."
+  room-not-waiting: "%prefix%&cThat room is not available (the game already started or the room was closed)."
+  room-full: "%prefix%&cThe room is full."
+  room-not-found: "%prefix%&cNo room found for host &f%player%&c."
+  new-host: "%prefix%&e%player% &7is the new host."
+  usage-invite: "%prefix%&cUsage: /wc invite <player>"
+  player-offline: "%prefix%&c%player% is not online."
+  cannot-invite-self: "%prefix%&cYou can't invite yourself."
+  target-in-room: "%prefix%&c%player% is already in a room."
+  already-invited: "%prefix%&c%player% is already invited."
+  invite-sent: "%prefix%&7Invite sent to &a%player%&7."
+  invite-received:
+    - "%prefix%&e%player% &7invited you to a Word Chain room!"
+    - "%prefix%&7Type &a/wc accept %player% &7to join or &c/wc deny &7to decline. &8(expires in %seconds%s)"
+  no-invite: "%prefix%&cYou have no pending invites."
+  no-invite-from: "%prefix%&cYou have no invite from %player%."
+  multiple-invites: "%prefix%&cYou have more than one invite. Use &e/wc accept <host>&c."
+  invite-denied: "%prefix%&7Invites denied."
+  player-joined: "%prefix%&a%player% &7joined the room &8(%players%/%max%)"
+  player-left: "%prefix%&c%player% &7left the room."
+  you-left: "%prefix%&7You left the room."
   countdown-cancelled: "%prefix%&cNot enough players. Countdown cancelled."
+  countdown: "%prefix%&7Game starts in &e%seconds% &7second(s)..."
 
   # Game messages
   game-started:
     - "%prefix%&aThe game has started!"
     - "%prefix%&7Type a word that starts with the last letter of the previous word. Don't run out of time!"
-  your-turn-broadcast: "%prefix%&e%player%&7's turn! Letter: &b%letter% &7(&c%time%s&7) &8| &c%lives%❤"
+  your-turn-broadcast: "%prefix%&e%player%&7's turn! Letter: &b%letter% &7(&c%time%s&7) &8| &c%lives%❤ &8| &e%tries% &7tries"
   your-turn: "%prefix%&aIt's your turn! Type a word starting with &b%letter% &ain chat."
-  actionbar: "&e%player% &8| &7Letter: &b%letter% &8| &c%time%s &8| &c%lives%❤"
+  actionbar: "&e%player% &8| &7Letter: &b%letter% &8| &c%time%s &8| &c%lives%❤ &8| &7Tries: &e%tries%"
   word-accepted: "%prefix%&b%player% &8» &f%word% &7- next letter: &b%letter%"
 
   # Wrong word messages (the player can try again until time runs out)
@@ -112,10 +145,13 @@ messages:
   not-a-word: "%prefix%&c\"%word%\" is not an English word."
 
   # End messages
-  life-lost: "%prefix%&c%player% &7ran out of time and lost a life! &8(&c%lives%❤ &8left)"
+  tries-left: "%prefix%&7Tries left this turn: &e%tries%"
+  life-lost-timeout: "%prefix%&c%player% &7ran out of time and lost a life! &8(&c%lives%❤ &8left)"
+  life-lost-wrong: "%prefix%&c%player% &7used all tries and lost a life! &8(&c%lives%❤ &8left)"
+  eliminated-wrong: "%prefix%&c%player% &7used all tries with no lives left and is eliminated!"
   eliminated-timeout: "%prefix%&c%player% &7ran out of time with no lives left and is eliminated!"
   eliminated-left: "%prefix%&c%player% &7left and is eliminated!"
-  game-stopped: "%prefix%&cThe game was stopped."
+  game-stopped: "%prefix%&cThe room was closed."
   no-winner: "%prefix%&7The game ended with no winner."
   winner:
     - "%prefix%&6&l%player% &ewon the game!"
