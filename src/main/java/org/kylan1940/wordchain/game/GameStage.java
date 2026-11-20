@@ -1,6 +1,5 @@
 package org.kylan1940.wordchain.game;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
@@ -404,7 +403,7 @@ public class GameStage {
         lines.add(nameFormat.replace("%player%", seat.name));
 
         String text = ChatColor.translateAlternateColorCodes('&', String.join("\n", lines));
-        seat.text.text(LegacyComponentSerializer.legacySection().deserialize(text));
+        seat.text.setText(text);
     }
 
     private FileConfiguration cfg() {

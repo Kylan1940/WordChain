@@ -1,6 +1,7 @@
 package org.kylan1940.wordchain.message;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -27,13 +28,15 @@ public final class MessageUtil {
         }
     }
 
-    // Shows a single line above the hotbar (used for the turn timer)
+    // Shows a single line above the hotbar (used for the turn timer).
+    // Uses the Spigot chat API, so it works on Spigot, Paper and their forks.
     public static void actionBar(Player player, String path, String... placeholders) {
         String message = WordChain.getInstance().getConfig().getString(path);
         if (message == null || message.isEmpty()) {
             return;
         }
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(color(replace(message, placeholders))));
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
+                TextComponent.fromLegacyText(color(replace(message, placeholders))));
     }
 
     private static String replace(String message, String... placeholders) {

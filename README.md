@@ -13,7 +13,7 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 >- Timer shown on the action bar
 >- Winner reward commands
 >- Tab completion
->- Compatible with Paper and its forks (Purpur, Pufferfish, Leaves)
+>- Compatible with Spigot, CraftBukkit, Paper and Paper forks (Purpur, Pufferfish, Leaves)
 
 # How to Play
 1. Type `/wordchain join` to create a room. You become the **host**.
@@ -32,9 +32,9 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 Many rooms can run at the same time. If the host leaves before the game starts, the next player becomes the host.
 
 # Download
-| Version | JAR                                                                                                | Minecraft Support | Software Support                    |
-|---------|----------------------------------------------------------------------------------------------------|-------------------|-------------------------------------|
-| 1.0.0   | [DOWNLOAD](https://github.com/Kylan1940/WordChain/releases/download/1.0.0/WordChain-1.0.0.jar)    | 1.21+             | Paper, Purpur, Pufferfish, Leaves   |
+| Version | JAR                                                                                                | Minecraft Support | Software Support                                           |
+|---------|----------------------------------------------------------------------------------------------------|-------------------|------------------------------------------------------------|
+| 1.0.0   | [DOWNLOAD](https://github.com/Kylan1940/WordChain/releases/download/1.0.0/WordChain-1.0.0.jar)    | 1.21+             | Spigot, CraftBukkit, Paper, Purpur, Pufferfish, Leaves     |
 
 # Installation
 1. Download the [plugin](https://github.com/Kylan1940/WordChain/releases/download/1.0.0/WordChain-1.0.0.jar)
