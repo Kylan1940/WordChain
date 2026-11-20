@@ -1,0 +1,440 @@
+package org.kylan1940.wordchain.game;
+
+import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
+import org.kylan1940.wordchain.WordChain;
+import org.kylan1940.wordchain.message.MessageUtil;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * One single Word Chain game for the whole server.
+ *
+ * Flow:  WAITING  ->  STARTING (countdown)  ->  RUNNING  ->  back to WAITING
+ *
+ * Rules:
+ *  - Players take turns typing an English word in chat.
+ *  - The word must start with the last letter of the previous word.
+ *  - A word can only be used once per game.
+ *  - A wrong word just gives a warning (try again), but when the timer
+ *    runs out the player is eliminated. Last player standing wins.
+ */
+public class WordChainGame {
+
+    public enum State {
+        WAITING, STARTING, RUNNING
+    }
+
+    private final WordChain plugin;
+    private final WordDictionary dictionary;
+
+    private State state = State.WAITING;
+
+    // Players who joined. While RUNNING this only holds the players still alive, in turn order.
+    private final List<UUID> players = new ArrayList<>();
+    // Everyone who started the match (used to send the final messages)
+    private final Set<UUID> participants = new HashSet<>();
+    // Words already used in this match
+    private final Set<String> usedWords = new HashSet<>();
+
+    private int currentIndex = 0;       // whose turn it is (index in players)
+    private int round = 1;              // +1 every time all players had a turn
+    private char requiredLetter = 0;    // 0 = first word, any letter is allowed
+    private int timeLeft = 0;           // seconds left for the current turn
+    private int countdown = 0;          // seconds left before the game starts
+
+    private BukkitTask countdownTask;
+    private BukkitTask turnTask;
+
+    public WordChainGame(WordChain plugin, WordDictionary dictionary) {
+        this.plugin = plugin;
+        this.dictionary = dictionary;
+    }
+
+    // ------------------------------------------------------------------
+    // Getters
+    // ------------------------------------------------------------------
+
+    public State getState() {
+        return state;
+    }
+
+    public List<UUID> getPlayers() {
+        return players;
+    }
+
+    public boolean isInGame(Player player) {
+        return players.contains(player.getUniqueId());
+    }
+
+    public boolean isCurrentPlayer(Player player) {
+        return state == State.RUNNING
+                && !players.isEmpty()
+                && players.get(currentIndex).equals(player.getUniqueId());
+    }
+
+    // ------------------------------------------------------------------
+    // Join / Leave
+    // ------------------------------------------------------------------
+
+    public void join(Player player) {
+        FileConfiguration config = plugin.getConfig();
+
+        if (state == State.RUNNING) {
+            MessageUtil.send(player, "messages.game-already-running");
+            return;
+        }
+        if (isInGame(player)) {
+            MessageUtil.send(player, "messages.already-joined");
+            return;
+        }
+        if (players.size() >= config.getInt("game.max-players", 10)) {
+            MessageUtil.send(player, "messages.game-full");
+            return;
+        }
+
+        players.add(player.getUniqueId());
+        broadcast("messages.player-joined",
+                "%player%", player.getName(),
+                "%players%", String.valueOf(players.size()),
+                "%max%", String.valueOf(config.getInt("game.max-players", 10)));
+
+        // Start the countdown automatically when there are enough players
+        if (state == State.WAITING && players.size() >= config.getInt("game.min-players", 2)) {
+            startCountdown();
+        }
+    }
+
+    public void leave(Player player) {
+        if (!isInGame(player)) {
+            return;
+        }
+
+        if (state == State.RUNNING) {
+            // Leaving in the middle of a match = eliminated
+            eliminate(player.getUniqueId(), "messages.eliminated-left");
+            return;
+        }
+
+        players.remove(player.getUniqueId());
+        MessageUtil.send(player, "messages.you-left");
+        broadcast("messages.player-left", "%player%", player.getName());
+
+        // Not enough players anymore, cancel the countdown
+        if (state == State.STARTING && players.size() < plugin.getConfig().getInt("game.min-players", 2)) {
+            cancelCountdown();
+            state = State.WAITING;
+            broadcast("messages.countdown-cancelled");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Start / Stop
+    // ------------------------------------------------------------------
+
+    // Used by /wordchain start (skips the countdown)
+    public boolean forceStart() {
+        if (state == State.RUNNING) {
+            return false;
+        }
+        if (players.size() < plugin.getConfig().getInt("game.min-players", 2)) {
+            return false;
+        }
+        cancelCountdown();
+        startGame();
+        return true;
+    }
+
+    private void startCountdown() {
+        state = State.STARTING;
+        countdown = plugin.getConfig().getInt("game.start-countdown", 10);
+
+        countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (countdown <= 0) {
+                cancelCountdown();
+                startGame();
+                return;
+            }
+            // Only announce at 10, 5, 4, 3, 2, 1 so the chat doesn't get spammed
+            if (countdown <= 5 || countdown % 10 == 0) {
+                broadcast("messages.countdown", "%seconds%", String.valueOf(countdown));
+            }
+            countdown--;
+        }, 0L, 20L);
+    }
+
+    private void startGame() {
+        state = State.RUNNING;
+        usedWords.clear();
+        participants.clear();
+        participants.addAll(players);
+
+        Collections.shuffle(players); // random turn order
+        currentIndex = 0;
+        round = 1;
+        requiredLetter = 0;
+
+        broadcast("messages.game-started");
+        beginTurn();
+    }
+
+    // Used by /wordchain stop
+    public void stop() {
+        if (state == State.WAITING && players.isEmpty()) {
+            return;
+        }
+        broadcastToParticipantsAndPlayers("messages.game-stopped");
+        reset();
+    }
+
+    // Used when the server shuts down / reloads (no messages)
+    public void shutdown() {
+        reset();
+    }
+
+    private void reset() {
+        cancelCountdown();
+        cancelTurnTask();
+        players.clear();
+        participants.clear();
+        usedWords.clear();
+        currentIndex = 0;
+        round = 1;
+        requiredLetter = 0;
+        state = State.WAITING;
+    }
+
+    // ------------------------------------------------------------------
+    // Turns
+    // ------------------------------------------------------------------
+
+    private void beginTurn() {
+        Player current = Bukkit.getPlayer(players.get(currentIndex));
+        String name = getName(players.get(currentIndex));
+
+        timeLeft = getTurnTime();
+
+        broadcast("messages.your-turn-broadcast",
+                "%player%", name,
+                "%letter%", getLetterText(),
+                "%time%", String.valueOf(timeLeft));
+        if (current != null) {
+            MessageUtil.send(current, "messages.your-turn",
+                    "%letter%", getLetterText(),
+                    "%time%", String.valueOf(timeLeft));
+        }
+        updateActionBar();
+
+        // Runs every second: count down, and eliminate the player when time is up
+        turnTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                eliminate(players.get(currentIndex), "messages.eliminated-timeout");
+                return;
+            }
+            updateActionBar();
+        }, 20L, 20L);
+    }
+
+    // The turn time gets shorter every round, but never below min-turn-time
+    private int getTurnTime() {
+        FileConfiguration config = plugin.getConfig();
+        int time = config.getInt("game.turn-time", 20)
+                - (round - 1) * config.getInt("game.time-decrease-per-round", 1);
+        return Math.max(time, config.getInt("game.min-turn-time", 8));
+    }
+
+    private void nextTurn() {
+        cancelTurnTask();
+        currentIndex++;
+        if (currentIndex >= players.size()) {
+            currentIndex = 0;
+            round++;
+        }
+        beginTurn();
+    }
+
+    private void updateActionBar() {
+        String name = getName(players.get(currentIndex));
+        for (UUID uuid : players) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                MessageUtil.actionBar(player, "messages.actionbar",
+                        "%player%", name,
+                        "%letter%", getLetterText(),
+                        "%time%", String.valueOf(timeLeft));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Words
+    // ------------------------------------------------------------------
+
+    // Called (on the main thread) when the player whose turn it is types something in chat
+    public void handleWord(Player player, String input) {
+        if (!isCurrentPlayer(player)) {
+            return;
+        }
+
+        FileConfiguration config = plugin.getConfig();
+        String word = input.trim().toLowerCase();
+
+        // 1. Only letters a-z
+        if (!word.matches("[a-z]+")) {
+            MessageUtil.send(player, "messages.invalid-characters");
+            return;
+        }
+        // 2. Long enough
+        int minLength = config.getInt("game.min-word-length", 3);
+        if (word.length() < minLength) {
+            MessageUtil.send(player, "messages.too-short", "%min%", String.valueOf(minLength));
+            return;
+        }
+        // 3. Starts with the right letter
+        if (requiredLetter != 0 && word.charAt(0) != requiredLetter) {
+            MessageUtil.send(player, "messages.wrong-letter", "%letter%", getLetterText());
+            return;
+        }
+        // 4. Not used before
+        if (usedWords.contains(word)) {
+            MessageUtil.send(player, "messages.already-used", "%word%", word);
+            return;
+        }
+        // 5. Real English word
+        if (!dictionary.contains(word)) {
+            MessageUtil.send(player, "messages.not-a-word", "%word%", word);
+            return;
+        }
+
+        // Word accepted!
+        usedWords.add(word);
+        requiredLetter = word.charAt(word.length() - 1);
+
+        broadcast("messages.word-accepted",
+                "%player%", player.getName(),
+                "%word%", word,
+                "%letter%", getLetterText());
+
+        nextTurn();
+    }
+
+    // ------------------------------------------------------------------
+    // Eliminate / End
+    // ------------------------------------------------------------------
+
+    private void eliminate(UUID uuid, String messageKey) {
+        int index = players.indexOf(uuid);
+        if (index == -1) {
+            return;
+        }
+        boolean wasCurrent = (index == currentIndex);
+
+        // Tell everyone BEFORE removing so the eliminated player also sees it
+        broadcast(messageKey, "%player%", getName(uuid));
+        players.remove(index);
+
+        // Only one player left (or nobody) -> game over
+        if (players.size() <= 1) {
+            endGame();
+            return;
+        }
+
+        // Keep currentIndex pointing at the same player after the removal
+        if (index < currentIndex) {
+            currentIndex--;
+        }
+
+        // If it was the eliminated player's turn, the next player takes over
+        if (wasCurrent) {
+            cancelTurnTask();
+            if (currentIndex >= players.size()) {
+                currentIndex = 0;
+                round++;
+            }
+            beginTurn();
+        }
+    }
+
+    private void endGame() {
+        cancelTurnTask();
+
+        if (players.size() == 1) {
+            UUID winnerId = players.get(0);
+            String winner = getName(winnerId);
+
+            broadcastToParticipantsAndPlayers("messages.winner",
+                    "%player%", winner,
+                    "%words%", String.valueOf(usedWords.size()),
+                    "%rounds%", String.valueOf(round));
+
+            // Run the reward commands from config.yml as console
+            for (String command : plugin.getConfig().getStringList("rewards.winner-commands")) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", winner));
+            }
+        } else {
+            broadcastToParticipantsAndPlayers("messages.no-winner");
+        }
+
+        reset();
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private void cancelCountdown() {
+        if (countdownTask != null) {
+            countdownTask.cancel();
+            countdownTask = null;
+        }
+    }
+
+    private void cancelTurnTask() {
+        if (turnTask != null) {
+            turnTask.cancel();
+            turnTask = null;
+        }
+    }
+
+    private String getLetterText() {
+        if (requiredLetter == 0) {
+            return plugin.getConfig().getString("messages.any-letter", "any");
+        }
+        return String.valueOf(requiredLetter).toUpperCase();
+    }
+
+    private String getName(UUID uuid) {
+        String name = Bukkit.getOfflinePlayer(uuid).getName();
+        return name != null ? name : "Unknown";
+    }
+
+    // Message for everyone who is currently in the game
+    private void broadcast(String path, String... placeholders) {
+        for (UUID uuid : new ArrayList<>(players)) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                MessageUtil.send(player, path, placeholders);
+            }
+        }
+    }
+
+    // Same as broadcast, but also includes players who were already eliminated
+    private void broadcastToParticipantsAndPlayers(String path, String... placeholders) {
+        Set<UUID> everyone = new HashSet<>(participants);
+        everyone.addAll(players);
+        for (UUID uuid : everyone) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                MessageUtil.send(player, path, placeholders);
+            }
+        }
+    }
+}

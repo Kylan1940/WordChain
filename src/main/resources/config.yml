@@ -1,0 +1,118 @@
+# ===========================================================================
+# __          __           _  _____ _           _
+# \ \        / /          | |/ ____| |         (_)
+#  \ \  /\  / /__  _ __ __| | |    | |__   __ _ _ _ __
+#   \ \/  \/ / _ \| '__/ _` | |    | '_ \ / _` | | '_ \
+#    \  /\  / (_) | | | (_| | |____| | | | (_| | | | | |
+#     \/  \/ \___/|_|  \__,_|\_____|_| |_|\__,_|_|_| |_|
+# ===========================================================================
+# Report Plugin: https://github.com/Kylan1940/WordChain/issues/new
+# ===========================================================================
+# Github: https://github.com/Kylan1940
+# Website: https://kylan1940.netlify.app
+# ===========================================================================
+
+# WORD CHAIN CONFIGURATION
+#
+# HELP:
+# - " " for new line
+# & for color and special symbols
+# %prefix% for prefix
+# Every message supports a list (one line per entry) or a single line.
+
+# Config Version
+# DON'T CHANGE THIS!!!
+config-version: 1
+
+# Prefix:
+prefix: "&7[&bWordChain&7] "
+
+# ===========================================================================
+# GAME SETTINGS
+# ===========================================================================
+game:
+  # Minimum players needed. The countdown starts automatically when reached.
+  min-players: 2
+  # Maximum players in one game.
+  max-players: 10
+  # Seconds before the game starts once min-players is reached.
+  start-countdown: 10
+  # Seconds each player has for their turn in the first round.
+  turn-time: 20
+  # The turn time gets shorter every round by this many seconds...
+  time-decrease-per-round: 1
+  # ...but never goes below this.
+  min-turn-time: 8
+  # Minimum letters in a word.
+  min-word-length: 3
+
+# ===========================================================================
+# REWARDS
+# ===========================================================================
+rewards:
+  # Commands run by the console when someone wins. %player% = winner name.
+  # Example:
+  #   - "give %player% diamond 3"
+  winner-commands: []
+
+# ===========================================================================
+# MESSAGES
+# Placeholders: %player% %word% %letter% %time% %seconds% %players% %max% %min%
+# ===========================================================================
+messages:
+  # Shown instead of a letter on the first word of a game.
+  any-letter: "ANY"
+
+  # Command messages
+  no-permission: "%prefix%&cYou don't have permission to do that."
+  only-player: "%prefix%&cOnly players can use this command."
+  reloaded: "%prefix%&aConfig reloaded."
+  stopped: "%prefix%&aThe game has been stopped."
+  cannot-start: "%prefix%&cCannot start. The game is already running or there are fewer than %min% players."
+  status: "%prefix%&7State: &f%state% &7| Players: &f%players%"
+  help:
+    - "&8&m                                        "
+    - "&b&lWordChain &7- type words that start with the last letter of the previous word!"
+    - "&e/wordchain join &7- Join the game"
+    - "&e/wordchain leave &7- Leave the game"
+    - "&e/wordchain status &7- See the game status"
+    - "&e/wordchain start &7- Force start &8(admin)"
+    - "&e/wordchain stop &7- Stop the game &8(admin)"
+    - "&e/wordchain reload &7- Reload config &8(admin)"
+    - "&8&m                                        "
+
+  # Lobby messages
+  game-already-running: "%prefix%&cA game is already running. Wait for the next one!"
+  already-joined: "%prefix%&cYou already joined the game."
+  game-full: "%prefix%&cThe game is full."
+  not-in-game: "%prefix%&cYou are not in the game."
+  player-joined: "%prefix%&a%player% &7joined the game &8(%players%/%max%)"
+  player-left: "%prefix%&c%player% &7left the game."
+  you-left: "%prefix%&7You left the game."
+  countdown: "%prefix%&7Game starts in &e%seconds% &7second(s)..."
+  countdown-cancelled: "%prefix%&cNot enough players. Countdown cancelled."
+
+  # Game messages
+  game-started:
+    - "%prefix%&aThe game has started!"
+    - "%prefix%&7Type a word that starts with the last letter of the previous word. Don't run out of time!"
+  your-turn-broadcast: "%prefix%&e%player%&7's turn! Letter: &b%letter% &7(&c%time%s&7)"
+  your-turn: "%prefix%&aIt's your turn! Type a word starting with &b%letter% &ain chat."
+  actionbar: "&e%player% &8| &7Letter: &b%letter% &8| &c%time%s"
+  word-accepted: "%prefix%&b%player% &8» &f%word% &7- next letter: &b%letter%"
+
+  # Wrong word messages (the player can try again until time runs out)
+  invalid-characters: "%prefix%&cUse letters only (a-z), one word."
+  too-short: "%prefix%&cYour word must have at least %min% letters."
+  wrong-letter: "%prefix%&cYour word must start with &b%letter%&c!"
+  already-used: "%prefix%&c\"%word%\" was already used."
+  not-a-word: "%prefix%&c\"%word%\" is not an English word."
+
+  # End messages
+  eliminated-timeout: "%prefix%&c%player% &7ran out of time and is eliminated!"
+  eliminated-left: "%prefix%&c%player% &7left and is eliminated!"
+  game-stopped: "%prefix%&cThe game was stopped."
+  no-winner: "%prefix%&7The game ended with no winner."
+  winner:
+    - "%prefix%&6&l%player% &ewon the game!"
+    - "%prefix%&7Words used: &f%words% &7| Rounds: &f%rounds%"

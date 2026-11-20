@@ -1,0 +1,27 @@
+name: WordChain
+version: '${project.version}'
+main: org.kylan1940.wordchain.WordChain
+api-version: '1.21'
+author: Kylan1940
+website: https://github.com/Kylan1940/WordChain
+description: English Word Chain minigame for Minecraft servers
+
+commands:
+  wordchain:
+    description: Word Chain main command
+    usage: /wordchain <join|leave|status|start|stop|reload>
+    aliases: [wc]
+
+permissions:
+  wordchain-play.command:
+    description: Join, leave and check the Word Chain game
+    default: true
+  wordchain-start.command:
+    description: Force start the Word Chain game
+    default: op
+  wordchain-stop.command:
+    description: Stop the Word Chain game
+    default: op
+  wordchain-reload.command:
+    description: Reload the WordChain config
+    default: op
