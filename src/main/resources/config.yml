@@ -95,6 +95,17 @@ stage:
   eliminated-format: "&c&m%player%"
 
 # ===========================================================================
+# SOUNDS
+# Minecraft sound names (see the Minecraft wiki "Sounds.json"). Everyone in the
+# game hears them. Leave empty ("") to turn a sound off.
+# ===========================================================================
+sounds:
+  # Played when a player types a wrong word (a falling anvil)
+  wrong-answer: "block.anvil.land"
+  volume: 1.0
+  pitch: 1.0
+
+# ===========================================================================
 # REWARDS
 # ===========================================================================
 rewards:

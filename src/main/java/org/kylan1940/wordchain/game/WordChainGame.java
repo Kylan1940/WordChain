@@ -427,6 +427,7 @@ public class WordChainGame {
     // A wrong word costs 1 try of this turn. When no tries are left the player loses 1 game life.
     private void wrongAnswer(Player player, String path, String... placeholders) {
         MessageUtil.send(player, path, placeholders);
+        playSound("sounds.wrong-answer"); // falling anvil sound for everyone
 
         turnTries--;
         if (turnTries <= 0) {
@@ -528,6 +529,26 @@ public class WordChainGame {
         if (turnTask != null) {
             turnTask.cancel();
             turnTask = null;
+        }
+    }
+
+    // Plays the sound from config.yml to everyone in the match (empty = no sound).
+    // The sound is a Minecraft sound name like "block.anvil.land", so it works on every version.
+    private void playSound(String path) {
+        String sound = plugin.getConfig().getString(path, "");
+        if (sound == null || sound.isEmpty()) {
+            return;
+        }
+        float volume = (float) plugin.getConfig().getDouble("sounds.volume", 1.0);
+        float pitch = (float) plugin.getConfig().getDouble("sounds.pitch", 1.0);
+
+        Set<UUID> everyone = new HashSet<>(participants);
+        everyone.addAll(players);
+        for (UUID uuid : everyone) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                player.playSound(player.getLocation(), sound, volume, pitch);
+            }
         }
     }
 
