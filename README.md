@@ -8,7 +8,7 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 >- English word chain with ~370,000 words dictionary
 >- Lives (game health) for the whole game, plus turn health (tries) that resets every turn
 >- Third person view: a camera glides to the player whose turn it is
->- The required letter and every typed word (white, wrong or right) float above the player
+>- The required letter and the last typed word (white, wrong or right) float above the player
 >- Turn timer that gets shorter every round
 >- Timer shown on the action bar
 >- Wrong word sound (falling anvil)
@@ -29,7 +29,7 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 9. Leaving the room (or disconnecting) in the middle of a match eliminates you.
 10. The last player standing wins! The camera shows the winner, then everyone gets their game mode and location back. The room is closed after the game.
 
-**Third person view:** players spectate from a camera that follows the current turn, with the required letter (gold) and typed words (white) shown above them. Every player is shown with their own skin (Minecraft 1.21.9+; older versions show just their head). Disable with `stage.enabled: false`.
+**Third person view:** players spectate from a camera that follows the current turn, with the required letter (gold) and the last typed word (white) shown above them. Every player is shown with their own skin (Minecraft 1.21.9+; older versions show just their head). Disable with `stage.enabled: false`.
 
 Many rooms can run at the same time. If the host leaves before the game starts, the next player becomes the host.
 

@@ -42,7 +42,7 @@ import java.util.UUID;
  *    (Mannequin entity, Minecraft 1.21.9+), or on older versions a small figure with their head.
  *  - Every player is put in spectator mode and watches through a camera (an invisible armor stand).
  *  - The camera glides to the player whose turn it is.
- *  - Above the player: the required letter (current turn only) and every word they typed
+ *  - Above the player: the required letter (current turn only) and the last word they typed
  *    this turn in white, wrong or right.
  *
  * When the game is over everyone gets their old game mode and location back.
@@ -252,7 +252,7 @@ public class GameStage {
         }
     }
 
-    // Every word the player types shows up above them in white (wrong or not)
+    // The last word the player typed shows up above them in white (wrong or not)
     public void addAttempt(UUID uuid, String word) {
         Seat seat = seats.get(uuid);
         if (seat == null) {
@@ -263,10 +263,9 @@ public class GameStage {
         if (word.length() > 20) {
             word = word.substring(0, 20);
         }
+        // Only the LAST word is shown: it replaces the previous one
+        seat.attempts.clear();
         seat.attempts.add(word);
-        if (seat.attempts.size() > 6) {
-            seat.attempts.remove(0);
-        }
         updateText(seat, uuid.equals(current));
     }
 
@@ -438,7 +437,7 @@ public class GameStage {
         });
     }
 
-    // Letter on top (current player only), then the words typed this turn in white, then the name
+    // Letter on top (current player only), then the last typed word in white, then the name
     private void updateText(Seat seat, boolean showLetter) {
         FileConfiguration config = cfg();
         List<String> lines = new ArrayList<>();

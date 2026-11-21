@@ -63,7 +63,7 @@ game:
 # STAGE (third person view)
 # While a game is running every player is put in spectator mode and watches
 # through a camera. The camera glides to the player whose turn it is.
-# Above that player: the required letter and every word they type (white).
+# Above that player: the required letter and the last word they typed (white).
 # Play on flat ground, the seats are placed in a circle around the host.
 # Players get their old game mode and location back when the game ends.
 # ===========================================================================
