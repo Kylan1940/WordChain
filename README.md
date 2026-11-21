@@ -27,7 +27,7 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 9. Leaving the room (or disconnecting) in the middle of a match eliminates you.
 10. The last player standing wins! The camera shows the winner, then everyone gets their game mode and location back. The room is closed after the game.
 
-**Third person view:** when the game starts, every player is put in spectator mode and sits in a circle around the host (play on flat ground). The camera looks at the player whose turn it is. Above them you see the required letter (gold) and every word they type (white). This can be turned off with `stage.enabled: false`.
+**Third person view:** players spectate from a camera that follows the current turn, with the required letter (gold) and typed words (white) shown above them. Every player is shown with their own skin (Minecraft 1.21.9+; older versions show just their head). Disable with `stage.enabled: false`.
 
 Many rooms can run at the same time. If the host leaves before the game starts, the next player becomes the host.
 
@@ -81,6 +81,7 @@ stage:
   radius: 5.0            # circle of seats around the host
   camera-distance: 3.5   # camera distance in front of the player
   camera-height: 1.4
+  use-player-skin: true  # real skin figure (1.21.9+), falls back to head-only on older versions
   move-ticks: 25         # how long the camera glides to the next player
   end-delay: 80          # winner stays in view (ticks)
   text-height: 1.9

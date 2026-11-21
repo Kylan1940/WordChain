@@ -10,11 +10,14 @@ import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerProfile;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
@@ -35,7 +38,8 @@ import java.util.UUID;
 /**
  * The "stage" of a running game: a third person view of the game.
  *
- *  - Every player gets a seat (a small figure with their head) placed in a circle.
+ *  - Every player gets a seat placed in a circle: a figure with the player's own skin
+ *    (Mannequin entity, Minecraft 1.21.9+), or on older versions a small figure with their head.
  *  - Every player is put in spectator mode and watches through a camera (an invisible armor stand).
  *  - The camera glides to the player whose turn it is.
  *  - Above the player: the required letter (current turn only) and every word they typed
@@ -53,7 +57,8 @@ public class GameStage {
         private UUID uuid;
         private String name;
         private Location location;
-        private ArmorStand body;
+        private Entity body;
+        private boolean skin; // true = real skin (Mannequin), false = armor stand with head
         private TextDisplay text;
         private final List<String> attempts = new ArrayList<>();
         private boolean eliminated;
@@ -112,8 +117,12 @@ public class GameStage {
             seat.uuid = player.getUniqueId();
             seat.name = player.getName();
             seat.location = seatLocation;
-            seat.body = spawnBody(world, seatLocation, player, i);
-            seat.text = spawnText(world, seatLocation);
+            seat.body = spawnSkinBody(world, seatLocation, player);
+            seat.skin = seat.body != null;
+            if (seat.body == null) {
+                seat.body = spawnBody(world, seatLocation, player, i);
+            }
+            seat.text = spawnText(world, seatLocation, seat.skin);
             seats.put(seat.uuid, seat);
             updateText(seat, false);
         }
@@ -278,6 +287,9 @@ public class GameStage {
         double distance = cfg().getDouble("stage.camera-distance", 3.5);
         double height = cfg().getDouble("stage.camera-height", 1.4);
         double lookHeight = cfg().getDouble("stage.look-height", 1.3);
+        if (seat.skin) {
+            lookHeight += cfg().getDouble("stage.standing-offset", 0.5); // a standing figure is taller
+        }
 
         Vector toCenter = center.toVector().subtract(seat.location.toVector()).setY(0).normalize();
         Location camera = seat.location.clone().add(toCenter.multiply(distance));
@@ -336,7 +348,43 @@ public class GameStage {
             Color.PURPLE, Color.AQUA, Color.FUCHSIA, Color.WHITE, Color.GREEN
     };
 
-    // A small sitting figure: the player's head + colored clothes
+    // A figure with the player's REAL skin, using the Mannequin entity (Minecraft 1.21.9+).
+    // The Mannequin API does not exist on older versions, so it is used through reflection.
+    // Returns null if it is not available, then spawnBody() is used instead.
+    private Entity spawnSkinBody(World world, Location seatLocation, Player player) {
+        if (!cfg().getBoolean("stage.use-player-skin", true)) {
+            return null;
+        }
+
+        Entity entity = null;
+        try {
+            EntityType type = EntityType.valueOf("MANNEQUIN");
+
+            Location location = seatLocation.clone();
+            location.setDirection(center.toVector().subtract(seatLocation.toVector()).setY(0));
+
+            entity = world.spawnEntity(location, type);
+
+            Class<?> mannequin = Class.forName("org.bukkit.entity.Mannequin");
+            mannequin.getMethod("setPlayerProfile", PlayerProfile.class).invoke(entity, player.getPlayerProfile());
+            mannequin.getMethod("setImmovable", boolean.class).invoke(entity, true);
+            mannequin.getMethod("setHideDescription", boolean.class).invoke(entity, true);
+
+            entity.setGravity(false);
+            entity.setPersistent(false);
+            entity.setInvulnerable(true);
+            entity.setSilent(true);
+            return entity;
+        } catch (Exception | LinkageError e) {
+            // Old server version (no MANNEQUIN) or the API changed
+            if (entity != null) {
+                entity.remove();
+            }
+            return null;
+        }
+    }
+
+    // Fallback: a small sitting figure: the player's head + colored clothes
     private ArmorStand spawnBody(World world, Location seatLocation, Player player, int index) {
         Location location = seatLocation.clone();
         location.setY(location.getY() - 0.65); // sit on the floor
@@ -374,8 +422,12 @@ public class GameStage {
     }
 
     // The floating text above a seat. It always turns to face the viewers.
-    private TextDisplay spawnText(World world, Location seatLocation) {
-        Location location = seatLocation.clone().add(0, cfg().getDouble("stage.text-height", 1.9), 0);
+    private TextDisplay spawnText(World world, Location seatLocation, boolean skin) {
+        double height = cfg().getDouble("stage.text-height", 1.9);
+        if (skin) {
+            height += cfg().getDouble("stage.standing-offset", 0.5); // a standing figure is taller
+        }
+        Location location = seatLocation.clone().add(0, height, 0);
         float scale = (float) cfg().getDouble("stage.text-scale", 1.5);
 
         return world.spawn(location, TextDisplay.class, display -> {

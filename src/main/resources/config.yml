@@ -81,6 +81,11 @@ stage:
   move-ticks: 25
   # Ticks the winner stays in view before everyone goes back (20 ticks = 1 second)
   end-delay: 80
+  # true = the figure uses the player's real skin (needs Minecraft 1.21.9+, uses the Mannequin entity).
+  # On older versions it automatically falls back to a figure with just the player's head.
+  use-player-skin: true
+  # Extra height for the text and the camera target when the figure has the real skin (standing, taller)
+  standing-offset: 0.5
   # Floating text above the player
   text-height: 1.9
   text-scale: 1.5
