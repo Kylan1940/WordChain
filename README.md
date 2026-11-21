@@ -12,6 +12,7 @@ English Word Chain minigame plugin for Minecraft Java Server. Take turns typing 
 >- Turn timer that gets shorter every round
 >- Timer shown on the action bar
 >- Wrong word sound (falling anvil)
+>- Title and subtitle when the game is won
 >- Winner reward commands
 >- Tab completion
 >- Compatible with Spigot, CraftBukkit, Paper and Paper forks (Purpur, Pufferfish, Leaves)
@@ -89,6 +90,9 @@ stage:
   text-scale: 1.5
 ```
 Letter, word and name colors are in `stage` too (`letter-format`, `attempt-format`, ...).
+
+# Titles
+When the game is won, the winner sees a title and subtitle (`VICTORY!`) and everyone else sees `GAME OVER` with the winner's name. Change or turn them off in `titles:` in `config.yml` (leave `title` and `subtitle` empty to turn off).
 
 # Sounds
 A falling anvil sound plays for everyone in the game when a player types a wrong word. Change it with any [Minecraft sound name](https://minecraft.wiki/w/Sounds.json), or leave it empty to turn it off.

@@ -4,6 +4,7 @@ import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.kylan1940.wordchain.WordChain;
 
@@ -37,6 +38,23 @@ public final class MessageUtil {
         }
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR,
                 TextComponent.fromLegacyText(color(replace(message, placeholders))));
+    }
+
+    // Shows a title + subtitle in the middle of the screen.
+    // path = for example "titles.winner" (reads path.title and path.subtitle from config.yml)
+    public static void title(Player player, String path, String... placeholders) {
+        FileConfiguration config = WordChain.getInstance().getConfig();
+        String title = config.getString(path + ".title", "");
+        String subtitle = config.getString(path + ".subtitle", "");
+        if (title.isEmpty() && subtitle.isEmpty()) {
+            return;
+        }
+        player.sendTitle(
+                color(replace(title, placeholders)),
+                color(replace(subtitle, placeholders)),
+                config.getInt("titles.fade-in", 10),
+                config.getInt("titles.stay", 70),
+                config.getInt("titles.fade-out", 20));
     }
 
     private static String replace(String message, String... placeholders) {

@@ -500,6 +500,21 @@ public class WordChainGame {
                 endingStage.finish(winnerId, plugin.getConfig().getInt("stage.end-delay", 80));
             }
 
+            // Title + subtitle: one for the winner, one for everyone else
+            Set<UUID> everyone = new HashSet<>(participants);
+            everyone.addAll(players);
+            for (UUID uuid : everyone) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player == null) {
+                    continue;
+                }
+                String titlePath = uuid.equals(winnerId) ? "titles.winner" : "titles.others";
+                MessageUtil.title(player, titlePath,
+                        "%player%", winner,
+                        "%words%", String.valueOf(usedWords.size()),
+                        "%rounds%", String.valueOf(round));
+            }
+
             // Run the reward commands from config.yml as console
             for (String command : plugin.getConfig().getStringList("rewards.winner-commands")) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", winner));

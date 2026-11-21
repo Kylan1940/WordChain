@@ -95,6 +95,26 @@ stage:
   eliminated-format: "&c&m%player%"
 
 # ===========================================================================
+# TITLES
+# Big text in the middle of the screen when the game is won.
+# Leave title and subtitle both empty ("") to turn it off.
+# Placeholders: %player% (winner) %words% %rounds%
+# ===========================================================================
+titles:
+  # Times in ticks (20 ticks = 1 second)
+  fade-in: 10
+  stay: 70
+  fade-out: 20
+  # Shown to the winner
+  winner:
+    title: "&6&lVICTORY!"
+    subtitle: "&eYou won the game!"
+  # Shown to everyone else
+  others:
+    title: "&c&lGAME OVER"
+    subtitle: "&e%player% &7won the game"
+
+# ===========================================================================
 # SOUNDS
 # Minecraft sound names (see the Minecraft wiki "Sounds.json"). Everyone in the
 # game hears them. Leave empty ("") to turn a sound off.
