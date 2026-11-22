@@ -6,6 +6,8 @@ import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.ArmorStand;
@@ -26,6 +28,8 @@ import org.joml.Vector3f;
 import org.bukkit.util.Transformation;
 import org.kylan1940.wordchain.WordChain;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -348,7 +352,8 @@ public class GameStage {
     };
 
     // A figure with the player's REAL skin, using the Mannequin entity (Minecraft 1.21.9+).
-    // The Mannequin API does not exist on older versions, so it is used through reflection.
+    // The Mannequin API does not exist on older versions, and Spigot and Paper have different
+    // methods for the skin, so everything is done through reflection.
     // Returns null if it is not available, then spawnBody() is used instead.
     private Entity spawnSkinBody(World world, Location seatLocation, Player player) {
         if (!cfg().getBoolean("stage.use-player-skin", true)) {
@@ -357,7 +362,10 @@ public class GameStage {
 
         Entity entity = null;
         try {
-            EntityType type = EntityType.valueOf("MANNEQUIN");
+            EntityType type = findMannequinType();
+            if (type == null) {
+                throw new IllegalStateException("this server has no MANNEQUIN entity (needs Minecraft 1.21.9+)");
+            }
 
             Location location = seatLocation.clone();
             location.setDirection(center.toVector().subtract(seatLocation.toVector()).setY(0));
@@ -365,9 +373,9 @@ public class GameStage {
             entity = world.spawnEntity(location, type);
 
             Class<?> mannequin = Class.forName("org.bukkit.entity.Mannequin");
-            mannequin.getMethod("setPlayerProfile", PlayerProfile.class).invoke(entity, player.getPlayerProfile());
+            setSkin(mannequin, entity, player);
+            hideDescription(mannequin, entity);
             mannequin.getMethod("setImmovable", boolean.class).invoke(entity, true);
-            mannequin.getMethod("setHideDescription", boolean.class).invoke(entity, true);
 
             entity.setGravity(false);
             entity.setPersistent(false);
@@ -375,11 +383,78 @@ public class GameStage {
             entity.setSilent(true);
             return entity;
         } catch (Exception | LinkageError e) {
-            // Old server version (no MANNEQUIN) or the API changed
+            // Old server version or the API is different: use the head figure instead
             if (entity != null) {
                 entity.remove();
             }
+            if (!skinWarningShown) {
+                skinWarningShown = true;
+                plugin.getLogger().warning("Real skin figure is not available, using the head figure instead. Reason: " + e);
+            }
             return null;
+        }
+    }
+
+    private static boolean skinWarningShown = false;
+
+    // Finds EntityType MANNEQUIN. Uses the registry first (works whatever EntityType is), then the enum name.
+    private EntityType findMannequinType() {
+        try {
+            Registry<?> registry = (Registry<?>) Registry.class.getField("ENTITY_TYPE").get(null);
+            Object type = registry.get(NamespacedKey.minecraft("mannequin"));
+            if (type instanceof EntityType) {
+                return (EntityType) type;
+            }
+        } catch (Exception | LinkageError ignored) {
+            // try the enum below
+        }
+        try {
+            return EntityType.valueOf("MANNEQUIN");
+        } catch (Exception | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    // Puts the player's skin on the mannequin.
+    //  - Spigot: Mannequin#setPlayerProfile(PlayerProfile)
+    //  - Paper:  Mannequin#setProfile(ResolvableProfile)
+    private void setSkin(Class<?> mannequin, Entity entity, Player player) throws Exception {
+        Object profile = player.getPlayerProfile();
+
+        try {
+            mannequin.getMethod("setPlayerProfile", PlayerProfile.class).invoke(entity, profile);
+            return;
+        } catch (NoSuchMethodException ignored) {
+            // not Spigot, try Paper below
+        }
+
+        Class<?> resolvable = Class.forName("io.papermc.paper.datacomponent.item.ResolvableProfile");
+        for (Method method : resolvable.getMethods()) {
+            if (method.getName().equals("resolvableProfile")
+                    && Modifier.isStatic(method.getModifiers())
+                    && method.getParameterCount() == 1
+                    && method.getParameterTypes()[0].isInstance(profile)) {
+                Object resolvableProfile = method.invoke(null, profile);
+                mannequin.getMethod("setProfile", resolvable).invoke(entity, resolvableProfile);
+                return;
+            }
+        }
+        throw new NoSuchMethodException("no way found to set the skin of a Mannequin");
+    }
+
+    // The mannequin shows a description under its name ("Mannequin" by default). We have our own text, so hide it.
+    private void hideDescription(Class<?> mannequin, Entity entity) throws Exception {
+        try {
+            mannequin.getMethod("setHideDescription", boolean.class).invoke(entity, true); // Spigot
+            return;
+        } catch (NoSuchMethodException ignored) {
+            // Paper: setDescription(null) removes it
+        }
+        for (Method method : mannequin.getMethods()) {
+            if (method.getName().equals("setDescription") && method.getParameterCount() == 1) {
+                method.invoke(entity, new Object[]{null});
+                return;
+            }
         }
     }
 
